@@ -64,13 +64,15 @@ fn with_users(users: Users) -> impl Filter<Extract = (Users,), Error = Infallibl
 pub async fn login_handler(users: Users, body: LoginRequest) -> WebResult<impl Reply> {
     match users
         .iter()
-        .find(|(_uid, user) | user.email == body.email && user.pw == body.pw)
-        {
-            some((uid, user) => {
-                
-            })
+        .find(|(_uid, user)| user.email == body.email && user.pw == body.pw)
+    {
+        some((uid, user)) => {
+            let token = auth::create_jwt(&uid, &Role::from_string(&user.role))
+                .map_err(|e| reject::custom(e))?;
+            Ok(reply::json(&LoginResponse { token }))
         }
-
+        None => Err(reject::custom(WrongCredentialsError)),
+    }
 }
 
 fn init_users() -> HashMap<String, User> {
