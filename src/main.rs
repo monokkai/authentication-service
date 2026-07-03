@@ -1,4 +1,13 @@
+use auth::{Role, with_auth};
+use error::Error::*;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::convert::Infallible;
+use std::sync::Arc;
+use warp::{Filter, Rejection, Reply, reject, reply};
+
+mod auth;
+mod error;
 
 #[derive(Clone)]
 pub struct User {
@@ -22,4 +31,28 @@ pub struct LoginResponse {
 #[tokio::main]
 async fn main() {
     let users = Arc::new(init_users());
+    let login_route = warp::path!("login")
+        .and(warp::post())
+        .and(with_users(users.clone()))
+        .and(warp::body::json())
+        .and(then(login_handler()));
+
+    let user_route = warp::path!("user")
+        .and(with_auth(Role::User))
+        .and_then(user_handler);
+
+    let admin_route = warp::path!("admin")
+        .and(with_auth(Role::Admin))
+        .and_then(admin_handler);
+
+    let routes = login_route
+        .or(user_route)
+        .or(admin_route)
+        .recover(error::handle_rejection);
+
+    warp::serve(routes).run(([127, 0, 0 ,1], 8000))
+}
+
+fn with_users(users: Users) -> impl Filter<Extract> {
+
 }
